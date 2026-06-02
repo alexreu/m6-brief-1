@@ -1,54 +1,36 @@
-version: "3.8"
+version: "3.9"
+
 services:
-  api:
-    build: fastapi_app
+  # serveur Prefect: héberge l'UI et l'API sur le port 4200
+  prefect-server:
+    image: prefecthq/prefect:3-latest
+    command: prefect server start --host 0.0.0.0
+    container_name: prefect-server
     ports:
-      - "${FASTAPI_PORT}:${FASTAPI_PORT}"
-    environment:
-      FASTAPI_PORT: ${FASTAPI_PORT}
-    networks:
-      - app_network
-
-  streamlit:
-    build: streamlit_app
-    ports:
-      - "${STREAMLIT_PORT}:${STREAMLIT_PORT}"
-    depends_on:
-      - api
-    environment:
-      API_URL: http://api:${FASTAPI_PORT}/
+      - "4200:4200"
     volumes:
-      - ./logs:/logs  # Montage du volume pour stocker les logs de loguruuuuuuuu      
-    networks:
-      - app_network
+      # persist de la base SQLite entre les redémarrages
+      - prefect_data:/root/.prefect
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
 
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "${PROMETHEUS_PORT}:${PROMETHEUS_PORT}"
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
+  # exécute le pipeline flow.py toutes les 30 secondes
+  drift-monitor:
+    build: .
+    container_name: drift-monitor
     depends_on:
-      - api
-    networks:
-      - app_network
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "${GRAFANA_PORT}:${GRAFANA_PORT}"
+      prefect-server:
+        condition: service_healthy
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
-    volumes:
-      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
-      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources      
-    depends_on:
-      - prometheus
-    networks:
-      - app_network
+      - PREFECT_API_URL=http://prefect-server:4200/api
+      - PYTHONIOENCODING=utf-8
+    restart: unless-stopped
 
-networks:
-  app_network:
+volumes:
+  prefect_data:
+    name: prefect_data
