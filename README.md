@@ -1,61 +1,42 @@
-Test push - Alex.A
+# M6 - Brief 1 - Monitoring de dérive avec Prefect
 
-**Structure du projet :**
+Pipeline Prefect simulant la surveillance continue d'un modèle IA en production
+
+## Structure du projet
 
 ```
-docker-compose-app/
-├── .env
-├── .gitignore
+m6-brief-1/
 ├── README.md
 ├── docker-compose.yml
-│
-├── fastapi_app/
-│   ├── main.py
-│   ├── Dockerfile
-│   └── requirements.txt
-│
-├── streamlit_app/
-│   ├── app.py
-│   ├── Dockerfile
-│   └── requirements.txt
-│
-├── prometheus/
-│   └── prometheus.yml
-│
-├── grafana/
-│   ├── dashboards.py
-│   │   ├── dashboards.json
-│   │   └── dashboards.yml
-└── └── datasources
-        └── datasources.yml
+├── Dockerfile
+├── requirements.txt
+└── flow.py
 ```
 
-**Fichier `.env` :**
+## Lancement avec Docker
 
-```
-GRAFANA_ADMIN_USER=admin
-GRAFANA_ADMIN_PASSWORD=admin
-FASTAPI_PORT=8080
-STREAMLIT_PORT=8501
-PROMETHEUS_PORT=9090
-GRAFANA_PORT=3000
+```bash
+docker compose up --build
 ```
 
+L'UI Prefect est accessible sur http://localhost:4200
 
-**FastAPI (`fastapi_app/requirements.txt`) :**
+## Lancement en local
 
-```
-fastapi
-uvicorn
-pydantic
-prometheus-client
-python-multipart
+```bash
+pip install -r requirements.txt
+prefect server start
 ```
 
-**Streamlit (`streamlit_app/requirements.txt`) :**
+Dans un second terminal :
 
+```bash
+export PREFECT_API_URL=http://127.0.0.1:4200/api
+python flow.py
 ```
-streamlit
-requests
-loguru
-```
+
+## Fonctionnement
+
+Le pipeline s'exécute toutes les 10 secondes. Il génère un score aléatoire entre 0 et 1
+Si le score est inférieur à 0.5, une dérive est détectée et un réentraînement est déclenché.
+Les logs sont visibles dans l'UI Prefect
